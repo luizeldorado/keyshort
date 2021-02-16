@@ -1,2 +1,2 @@
 release:
-	g++ keyshort.cpp -o keyshort.exe -static-libgcc -static-libstdc++ -Os -s
+	g++ keyshort.cpp -o keyshort.exe -static -static-libgcc -static-libstdc++ -Os -s

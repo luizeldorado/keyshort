@@ -11,3 +11,4 @@ Format of file:
   `<...>`
 
 `<key>` can be a hex number (e.g. 0x2C) or a name described in [keynames.txt](https://github.com/luizeldorado/keyshort/raw/master/keynames.txt)
+`-` (minus sign) before the final key means that the key must be released, instead of pressed.

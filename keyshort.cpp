@@ -9,31 +9,39 @@
 
 // Definition loading
 
+// Represents one shortcut - one line in the file
 struct KeyShortDef {
 	std::vector<DWORD> heldKeys;
+	bool isRelease = false;
 	DWORD mainKey;
 	std::string command;
 };
 
+// List of all shortcuts
 std::vector<KeyShortDef> defs;
 
 enum DefLoadingSections { NONE, KEYS, COMMAND };
 
+// Convert a key string (like "alt" or "0x12") to the key code (like 0x12)
 DWORD getKeyFromString(std::string str) {
 
-    str.erase(0, str.find_first_not_of(" "));
-    str.erase(str.find_last_not_of(" ") + 1);
+	// Remove whitespace around string
+    str.erase(0, str.find_first_not_of(' '));
+    str.erase(str.find_last_not_of(' ') + 1);
 
+    // Convert to lowercase
 	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 
 	if (vksMap.count(str)) {
 
+		// String is a known key name
 		DWORD key = vksMap.at(str);
 		printf("[%s] %lu ", str.c_str(), key);
 		return key;
 
 	} else {
 
+		// Try converting from hex code
 		DWORD key = strtoul(str.c_str(), NULL, 16);
 		if (key == 0) {
 			printf("NaN ");
@@ -73,13 +81,25 @@ void loadDefs(char * fileName) {
 		}
 
 		if (section == KEYS) {
-			if (c == ',') {
+			if (c == ' ') {
+				continue;
+			} else if (c == ',') {
 				DWORD key = getKeyFromString(token);
 
 				currentDef -> heldKeys.push_back(key);
 				token = "";
 				continue;
 			} else if (c == '=') {
+
+				// Check for release character '-'
+				if (token.size() != 0) {
+					if (token[0] == '-') {
+						currentDef -> isRelease = true;
+						token.erase(0, 1);
+					}
+				}
+				printf("\n\tis release: %d", currentDef -> isRelease);
+
 				printf("\n\tmain key: ");
 
 				DWORD key = getKeyFromString(token);
@@ -134,7 +154,9 @@ HHOOK keyboardHook;
 LRESULT keyboardHookProc(int code, WPARAM wParam, LPARAM lParam) {
 
 	if (code == HC_ACTION) {
-		if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
+		if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN || wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
+
+			bool isRelease = (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
 
 			KBDLLHOOKSTRUCT hookStruct = *((KBDLLHOOKSTRUCT*) lParam);
 
@@ -143,7 +165,7 @@ LRESULT keyboardHookProc(int code, WPARAM wParam, LPARAM lParam) {
 			for (std::vector<KeyShortDef>::iterator def = defs.begin();
 				def != defs.end(); ++def) {
 
-				if (def -> mainKey == hookStruct.vkCode) {
+				if (def -> isRelease == isRelease && def -> mainKey == hookStruct.vkCode) {
 					bool allHeld = true;
 
 					for (std::vector<DWORD>::iterator heldKey = def -> heldKeys.begin();
@@ -205,9 +227,10 @@ int main(int argc, char * argv[]) {
 			"Executes commands when keys are pressed.\n"
 			"Usage: %s <file>\n"
 			"Format of file:\n"
-			"  <key 1>,<key 2>,<...>,<final key>=<command>\n"
+			"  <key 1>,<key 2>,<...>,[-]<final key>=<command>\n"
 			"  <...>\n"
 			"<key> can be a hex number (e.g. 0x2C) or a name described in keynames.txt\n"
+			"- (minus sign) before the final key means that the key must be released, instead of pressed.\n"
 		, argv[0]);
 	}
 
